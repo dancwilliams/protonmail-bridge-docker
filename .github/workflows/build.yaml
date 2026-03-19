@@ -73,8 +73,13 @@ jobs:
           file: ./build/Dockerfile
           tags: "${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}"
           push: true
+          provenance: mode=max
+          sbom: true
           build-args: |
             version=${{ env.version }}
+
+      - name: Verify provenance attestation
+        run: docker buildx imagetools inspect "${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}" --format '{{ json .Provenance }}'
 
       - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@0.35.0
@@ -149,8 +154,8 @@ jobs:
           outputs: type=image,name=${{ env.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
           context: ./build
           file: ./build/Dockerfile
-          provenance: false
-          sbom: false
+          provenance: mode=max
+          sbom: true
           build-args: |
             version=${{ env.version }}
             RUNTIME_IMAGE=${{ env.RUNTIME_IMAGE }}
