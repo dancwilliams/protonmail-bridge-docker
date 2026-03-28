@@ -1,3 +1,5 @@
 # Ignoring IDE-specific files
 .idea/*
 .vscode
+.local/*
+CLAUDE.md
