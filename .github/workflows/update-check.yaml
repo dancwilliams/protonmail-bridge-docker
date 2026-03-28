@@ -30,8 +30,9 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     if: |
-      github.event_name != 'pull_request' ||
-      needs.changes.outputs.update-check == 'true'
+      always() &&
+      (github.event_name != 'pull_request' ||
+       needs.changes.outputs.update-check == 'true')
     steps:
     - name: Checkout
       uses: actions/checkout@v6
