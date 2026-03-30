@@ -11,8 +11,7 @@ fi
 # Preset passphrase into gpg-agent for pass/bridge to decrypt credentials
 setup_gpg_passphrase() {
     # Ensure gpg-agent.conf allows preset passphrases
-    mkdir -p "$HOME"/.gnupg
-    chmod 700 "$HOME"/.gnupg
+    gpg --list-keys >&/dev/null
     if ! grep -q "allow-preset-passphrase" "$HOME"/.gnupg/gpg-agent.conf 2>/dev/null; then
         echo "allow-preset-passphrase" >> "$HOME"/.gnupg/gpg-agent.conf
     fi
