@@ -32,7 +32,7 @@ setup_gpg_passphrase() {
 if [[ $1 == init ]]; then
 
     # Generate GPG key if not already present
-    if [ ! -d "$HOME"/.gnupg/private-keys-v1.d ] || [ -z "$(ls -A "$HOME"/.gnupg/private-keys-v1.d/ 2>/dev/null)" ]; then
+    if ! gpg --list-secret-keys pass-key 2>/dev/null; then
         # Build gpgparams dynamically based on whether a passphrase is set
         local_gpgparams="/tmp/gpgparams"
         cp /protonmail/gpgparams "$local_gpgparams"
