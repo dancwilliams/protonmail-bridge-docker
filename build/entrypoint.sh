@@ -33,19 +33,12 @@ if [[ $1 == init ]]; then
 
     # Generate GPG key if not already present
     if ! gpg --list-secret-keys pass-key 2>/dev/null; then
-        # Build gpgparams dynamically based on whether a passphrase is set
-        local_gpgparams="/tmp/gpgparams"
-        cp /protonmail/gpgparams "$local_gpgparams"
         if [ -n "$KEYRING_PASSPHRASE" ]; then
-            # Insert passphrase after Key-Length line
-            sed -i "/^Key-Length:/a Passphrase: $KEYRING_PASSPHRASE" "$local_gpgparams"
+            passphrase_config=$(printf 'Passphrase: %s\n' "$KEYRING_PASSPHRASE")
         else
-            # No passphrase — prepend %no-protection
-            sed -i '1i %no-protection' "$local_gpgparams"
+            passphrase_config='%no-protection'
         fi
-
-        gpg --generate-key --batch "$local_gpgparams"
-        rm -f "$local_gpgparams"
+        sed "s/^<PASSPHRASE_CONFIG>\$/${passphrase_config}/" < /protonmail/gpgparams | gpg --batch --generate-key
     fi
 
     # Initialize pass if not already present
