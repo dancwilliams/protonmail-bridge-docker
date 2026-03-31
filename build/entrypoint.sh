@@ -17,8 +17,7 @@ setup_gpg_passphrase() {
     fi
 
     # Restart gpg-agent with preset support
-    gpgconf --kill gpg-agent 2>/dev/null || true
-    gpg-agent --homedir "$HOME"/.gnupg --daemon --allow-preset-passphrase 2>/dev/null || true
+    gpg-connect-agent reloadagent /bye
 
     local keygrip
     keygrip=$(gpg --list-keys --with-keygrip pass-key 2>/dev/null | grep Keygrip | head -1 | awk '{print $3}')
