@@ -3,5 +3,6 @@ Key-Type: RSA
 Key-Length: 4096
 Name-Real: pass-key
 Expire-Date: 0
+<PASSPHRASE_CONFIG>
 %commit
 %echo done

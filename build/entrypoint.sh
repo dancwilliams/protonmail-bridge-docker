@@ -14,10 +14,8 @@ setup_gpg_passphrase() {
     gpg --list-keys >&/dev/null
     if ! grep -q "allow-preset-passphrase" "$HOME"/.gnupg/gpg-agent.conf 2>/dev/null; then
         echo "allow-preset-passphrase" >> "$HOME"/.gnupg/gpg-agent.conf
+        gpg-connect-agent reloadagent /bye
     fi
-
-    # Restart gpg-agent with preset support
-    gpg-connect-agent reloadagent /bye
 
     local keygrip
     keygrip=$(gpg --list-keys --with-keygrip pass-key 2>/dev/null | grep Keygrip | head -1 | awk '{print $3}')
