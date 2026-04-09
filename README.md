@@ -115,6 +115,34 @@ docker run -d \
 
 If you only need outgoing email (e.g. for notifications), you can omit port `1143` (IMAP) entirely.
 
+### Credential storage
+
+By default, the container stores Protonmail credentials in a `pass` password store backed by a GPG key without a passphrase. This means if the Docker volume is stolen, the credentials can be recovered.
+
+To encrypt the GPG key with a passphrase, set the `KEYRING_PASSPHRASE` environment variable:
+
+**docker run:**
+
+```
+docker run -d \
+  --name=protonmail-bridge \
+  -v protonmail:/root \
+  -p 1025:25/tcp \
+  -p 1143:143/tcp \
+  -e KEYRING_PASSPHRASE=your-passphrase-here \
+  --restart=unless-stopped \
+  dancwilliams/protonmail-bridge
+```
+
+**docker compose:**
+
+```yaml
+environment:
+  - KEYRING_PASSPHRASE=your-passphrase-here
+```
+
+> **Note:** Adopting this on an existing setup requires re-running `init` with the environment variable set. This will regenerate the GPG key and you will need to re-authenticate with Protonmail.
+
 For security vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
 ## Kubernetes
