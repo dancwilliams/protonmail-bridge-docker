@@ -18,7 +18,7 @@ jobs:
       update-check: ${{ steps.filter.outputs.update-check }}
     steps:
       - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -30,8 +30,11 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     if: |
-      github.event_name != 'pull_request' ||
-      needs.changes.outputs.update-check == 'true'
+      always() &&
+      ((github.event_name == 'pull_request' && needs.changes.outputs.update-check == 'true') ||
+       github.event_name == 'schedule' ||
+       github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/master'))
     steps:
     - name: Checkout
       uses: actions/checkout@v6

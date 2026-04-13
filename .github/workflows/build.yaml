@@ -23,7 +23,7 @@ jobs:
       build: ${{ steps.filter.outputs.build }}
     steps:
       - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -73,8 +73,13 @@ jobs:
           file: ./build/Dockerfile
           tags: "${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}"
           push: true
+          provenance: mode=max
+          sbom: true
           build-args: |
             version=${{ env.version }}
+
+      - name: Verify provenance attestation
+        run: docker buildx imagetools inspect "${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}" --format '{{ json .Provenance }}'
 
       - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@0.35.0
@@ -149,8 +154,8 @@ jobs:
           outputs: type=image,name=${{ env.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
           context: ./build
           file: ./build/Dockerfile
-          provenance: false
-          sbom: false
+          provenance: mode=max
+          sbom: true
           build-args: |
             version=${{ env.version }}
             RUNTIME_IMAGE=${{ env.RUNTIME_IMAGE }}
@@ -238,6 +243,40 @@ jobs:
         run: |
           docker buildx imagetools inspect ${{ env.DOCKERHUB_REPO }}:${{ env.version }}
           docker buildx imagetools inspect ${{ env.GHCR_REPO }}:${{ env.version }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Skip if release already exists (e.g., workflow re-run)
+          if gh release view "${{ env.version }}" &>/dev/null; then
+            echo "Release ${{ env.version }} already exists, skipping"
+            exit 0
+          fi
+
+          # Fetch upstream release notes (best-effort)
+          UPSTREAM_BODY=$(gh api repos/ProtonMail/proton-bridge/releases/tags/${{ env.version }} --jq '.body' 2>/dev/null || echo "")
+
+          gh release create "${{ env.version }}" \
+            --title "${{ env.version }}" \
+            --notes "$(cat <<EOF
+          Docker image for Protonmail Bridge ${{ env.version }}
+
+          **Images:**
+          - \`docker pull ${{ env.DOCKERHUB_REPO }}:${{ env.version }}\`
+          - \`docker pull ${{ env.GHCR_REPO }}:${{ env.version }}\`
+
+          **Platforms:** linux/amd64, linux/arm64/v8, linux/riscv64
+
+          ---
+
+          <details><summary>Upstream release notes</summary>
+
+          ${UPSTREAM_BODY:-See https://github.com/ProtonMail/proton-bridge/releases/tag/${{ env.version }}}
+
+          </details>
+          EOF
+          )"
 
   ci-required:
     if: ${{ failure() || cancelled() }}
