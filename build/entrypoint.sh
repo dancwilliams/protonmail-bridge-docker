@@ -10,11 +10,22 @@ fi
 
 # Preset passphrase into gpg-agent for pass/bridge to decrypt credentials
 setup_gpg_passphrase() {
-    # Ensure gpg-agent.conf allows preset passphrases
-    gpg --list-keys >&/dev/null
-    if ! grep -q "allow-preset-passphrase" "$HOME"/.gnupg/gpg-agent.conf 2>/dev/null; then
-        echo "allow-preset-passphrase" >> "$HOME"/.gnupg/gpg-agent.conf
-        gpg-connect-agent reloadagent /bye
+    local conf="$HOME/.gnupg/gpg-agent.conf"
+    mkdir -p "$HOME/.gnupg"
+    chmod 700 "$HOME/.gnupg"
+
+    local needs_reload=0
+    if ! grep -q "allow-preset-passphrase" "$conf" 2>/dev/null; then
+        echo "allow-preset-passphrase" >> "$conf"
+        needs_reload=1
+    fi
+
+    # gpg-preset-passphrase does not auto-start gpg-agent, and listing public
+    # keys alone does not reliably spawn it. Launch explicitly.
+    gpgconf --launch gpg-agent
+
+    if [ "$needs_reload" = "1" ]; then
+        gpg-connect-agent reloadagent /bye >/dev/null
     fi
 
     local keygrip
