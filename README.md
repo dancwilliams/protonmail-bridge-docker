@@ -147,9 +147,11 @@ For security vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
 ## Kubernetes
 
-A [Helm chart](https://github.com/k8s-at-home/charts/tree/master/charts/stable/protonmail-bridge) is available for Kubernetes deployments. See the upstream issue [#23](https://github.com/shenxn/protonmail-bridge-docker/issues/23) for details.
+There is no officially maintained Helm chart for this image. The previously referenced `k8s-at-home/charts` repository was [archived in 2022](https://github.com/k8s-at-home/charts).
 
-For a non-Helm approach, see the guide in upstream issue [#6](https://github.com/shenxn/protonmail-bridge-docker/issues/6).
+As a community reference, [@sdwilsh](https://github.com/sdwilsh) maintains a [kustomize component for Proton Bridge](https://github.com/sdwilsh/ansible-playbooks/tree/main/kustomization/components/proton-bridge) that you may find useful as a starting point.
+
+For historical context, see upstream issue [#23](https://github.com/shenxn/protonmail-bridge-docker/issues/23) (Helm) and upstream issue [#6](https://github.com/shenxn/protonmail-bridge-docker/issues/6) (non-Helm guide).
 
 ## Bridge CLI Guide
 
