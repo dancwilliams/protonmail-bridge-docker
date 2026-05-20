@@ -1,6 +1,6 @@
 services:
   protonmail-bridge:
-    image: dancwilliams/protonmail-bridge:latest@sha256:71d42e649be6a847c033142b1388f748ba30e17c7f2424764976933a251d9d3b
+    image: dancwilliams/protonmail-bridge:latest@sha256:611f0597f6e6675c4773b99de140dce19de43561bfa0cf01c1f6c48a3b8f8018
     ports:
       - 1025:25/tcp
       - 1143:143/tcp
