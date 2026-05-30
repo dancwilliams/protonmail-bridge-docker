@@ -11,9 +11,11 @@ ARG version
 # Install build dependencies
 RUN apt-get -o Acquire::http::Timeout=30 update && apt-get -o Acquire::http::Timeout=30 install -y golang build-essential libsecret-1-dev libfido2-dev libcbor-dev
 
-# Build
+# Build (Path disables new vaults' AutoUpdates)
 ADD https://github.com/ProtonMail/proton-bridge.git#${version} /build/
+COPY disable-autoupdates.patch /build/
 WORKDIR /build/
+RUN patch -p1 < disable-autoupdates.patch
 RUN make build-nogui vault-editor
 
 FROM ${RUNTIME_IMAGE}
@@ -41,6 +43,7 @@ COPY --from=build /build/vault-editor /protonmail/
 
 # Prevent the bridge's built-in auto-updater from replacing the container binary at runtime.
 # Version management is handled externally via the update-check workflow.
+# This is for existing vaults that might have the AutoUpdates set to true
 RUN chmod -w /protonmail/bridge /protonmail/proton-bridge /protonmail/vault-editor
 
 ENTRYPOINT ["bash", "/protonmail/entrypoint.sh"]
