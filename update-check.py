@@ -1,16 +1,38 @@
 import requests, os, sys, subprocess
 
+
 def git(command):
-    return os.system(f"git {command}")
+    """Run a git command, raising if it fails."""
+    subprocess.run(f"git {command}", shell=True, check=True)
+
 
 def git_output(command):
+    """Run a git command and return its stripped stdout (empty on failure)."""
     result = subprocess.run(f"git {command}", shell=True, capture_output=True, text=True)
     return result.stdout.strip()
 
 
+token = os.environ.get("GITHUB_TOKEN")
+repo  = os.environ.get("GITHUB_REPOSITORY")
+
+# Authenticate the upstream read when possible to avoid shared-runner rate limits.
+api_headers = {"Accept": "application/vnd.github.v3+json"}
+if token:
+    api_headers["Authorization"] = f"token {token}"
+
 # Get latest upstream release
-release = requests.get("https://api.github.com/repos/ProtonMail/proton-bridge/releases/latest").json()
-version = release['tag_name']
+try:
+    resp = requests.get(
+        "https://api.github.com/repos/ProtonMail/proton-bridge/releases/latest",
+        headers=api_headers,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    version = resp.json()["tag_name"]
+except (requests.RequestException, KeyError, ValueError) as e:
+    print(f"Failed to fetch latest upstream release: {e}")
+    exit(1)
+
 print(f"Latest upstream release: {version}")
 
 # Read current version
@@ -29,6 +51,17 @@ if is_pull_request:
     print("Pull request run — skipping push.")
     exit(0)
 
+branch = f"bump/{version}"
+
+# Idempotency guard: the schedule fires daily, but a bump branch is only merged
+# when a human acts on the PR. If the branch already exists on the remote (the PR
+# is still open, or was closed without deleting the branch), recreating it would
+# push a non-fast-forward ref and fail the job on every run. Treat that as a
+# successful no-op instead of spamming failures. Delete the remote branch to retrigger.
+if git_output(f"ls-remote --heads origin {branch}"):
+    print(f"Branch {branch} already exists on the remote — PR already opened. Nothing to do.")
+    exit(0)
+
 # Write new version
 with open("VERSION", 'w') as f:
     f.write(version + "\n")
@@ -38,19 +71,16 @@ git("config --local user.name 'GitHub Actions'")
 git("config --local user.email 'actions@github.com'")
 
 # Create and push a branch for the version bump
-branch = f"bump/{version}"
 git(f"checkout -b {branch}")
 git("add VERSION")
 git(f'commit -m "Bump version to {version}"')
 
-if git(f"push origin {branch}") != 0:
+push = subprocess.run(f"git push origin {branch}", shell=True)
+if push.returncode != 0:
     print("Git push failed!")
     exit(1)
 
 # Open a pull request via GitHub API
-token = os.environ.get("GITHUB_TOKEN")
-repo  = os.environ.get("GITHUB_REPOSITORY")
-
 upstream_url = f"https://github.com/ProtonMail/proton-bridge/releases/tag/{version}"
 
 pr_body = f"""\
@@ -71,10 +101,8 @@ response = requests.post(
         "head": branch,
         "base": "master",
     },
-    headers={
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json",
-    },
+    headers=api_headers,
+    timeout=30,
 )
 
 if response.status_code == 201:
