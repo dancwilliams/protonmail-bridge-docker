@@ -1,7 +1,7 @@
 # ARG before any FROM is global and available in FROM instructions.
 # debian:bookworm-slim is the default; the workflow overrides to debian:sid-slim for riscv64
 # since bookworm has no riscv64 image.
-ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:0104b334637a5f19aa9c983a91b54c89887c0984081f2068983107a6f6c21eeb
+ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:96e378d7e6531ac9a15ad505478fcc2e69f371b10f5cdf87857c4b8188404716
 
 # debian:sid-slim is required for the build stage to support riscv64 (golang:bookworm does not).
 FROM debian:sid-slim@sha256:3c1f69492df236e7e6d361f7d5f2b894f8a817a3461d3d56bcb3ab683c112813 AS build
