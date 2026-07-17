@@ -4,7 +4,7 @@
 ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
 
 # debian:sid-slim is required for the build stage to support riscv64 (golang:bookworm does not).
-FROM debian:sid-slim@sha256:02aca65ed93bc0a93e4cd1f04cda43bee12daf09283ddff0fe8d03713c16e966 AS build
+FROM debian:sid-slim@sha256:54f7a23f03be1e9fe2849c61a7455588ea29b84c1659440f8ece2aea4c9871af AS build
 
 ARG version
 
