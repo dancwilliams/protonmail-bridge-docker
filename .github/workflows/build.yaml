@@ -6,7 +6,6 @@ on:
       - .github/workflows/build.yaml
       - build/*
       - VERSION
-      - REVISION
   pull_request:
   workflow_dispatch:
 
@@ -32,7 +31,6 @@ jobs:
               - '.github/workflows/build.yaml'
               - 'build/**'
               - 'VERSION'
-              - 'REVISION'
 
   test:
     needs: changes
@@ -119,12 +117,18 @@ jobs:
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
-          # debian:bookworm-slim has no riscv64 image; fall back to sid-slim for that platform
+          # Base image digests live only in build/Dockerfile so Renovate keeps them
+          # current. Never hard-code a digest here: a digest in this file is
+          # invisible to Renovate and went six months stale once (Feb-Sep 2026).
+          # debian:bookworm-slim has no riscv64 image; reuse the sid-slim digest
+          # from the Dockerfile's build stage for that platform.
           if [ "$platform" = "linux/riscv64" ]; then
-            echo "RUNTIME_IMAGE=debian:sid-slim@sha256:30128782ec2a5b0595723b21ee6be29adc2959a97fbff2b7cf5f582d28a5464b" >> $GITHUB_ENV
+            image=$(grep -oE 'debian:sid-slim@sha256:[0-9a-f]{64}' build/Dockerfile | head -1)
           else
-            echo "RUNTIME_IMAGE=debian:bookworm-slim@sha256:74d56e3931e0d5a1dd51f8c8a2466d21de84a271cd3b5a733b803aa91abf4421" >> $GITHUB_ENV
+            image=$(grep -oE 'debian:bookworm-slim@sha256:[0-9a-f]{64}' build/Dockerfile | head -1)
           fi
+          test -n "$image"
+          echo "RUNTIME_IMAGE=$image" >> $GITHUB_ENV
 
       - name: Set version
         run: echo "version=$(cat VERSION)" >> $GITHUB_ENV
@@ -183,6 +187,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # revision below needs history back to the last VERSION bump
 
       - name: Download digests
         uses: actions/download-artifact@v8
@@ -191,10 +197,16 @@ jobs:
           pattern: digests-*
           merge-multiple: true
 
+      # Container build revision: 1 for the commit that bumped VERSION, +1 for
+      # every later commit that touched a build input (build/, this workflow).
+      # Derived, not stored, so Renovate base-image bumps and other rebuilds of
+      # the same upstream version get a fresh immutable tag without anyone
+      # remembering to edit a file.
       - name: Set version
         run: |
           echo "version=$(cat VERSION)" >> $GITHUB_ENV
-          echo "revision=$(cat REVISION)" >> $GITHUB_ENV
+          base=$(git log -1 --format=%H -- VERSION)
+          echo "revision=$(( $(git rev-list --count "$base"..HEAD -- build .github/workflows/build.yaml) + 1 ))" >> $GITHUB_ENV
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -217,13 +229,12 @@ jobs:
       #   v3.26.0    floating: latest revision of that upstream version
       #   latest     floating: newest of everything
       # VERSION is the upstream Proton Bridge tag and is only ever changed by the
-      # update-check workflow, which also resets REVISION to 1. A container-side
-      # change that ships a rebuild of the same upstream version (entrypoint fix,
-      # base image, dependency) must bump REVISION in the same PR so the rebuild
-      # gets a fresh immutable tag and its own release instead of silently
-      # replacing the previous digest. Never invent an upstream-looking number
-      # such as v3.26.1: it collides with Proton's own releases and breaks the
-      # update-check comparison.
+      # update-check workflow. The revision is computed in "Set version" above, so
+      # any rebuild of the same upstream version (entrypoint fix, base image bump,
+      # dependency) gets a fresh immutable tag and its own release instead of
+      # silently replacing the previous digest. Never invent an upstream-looking
+      # number such as v3.26.1: it collides with Proton's own releases and breaks
+      # the update-check comparison.
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v6
