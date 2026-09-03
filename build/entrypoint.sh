@@ -2,6 +2,11 @@
 
 set -e
 
+# The launcher execs any newer bridge it finds here (downloaded by the
+# built-in updater, amd64 only) instead of the image's binaries. Drop it so
+# the image version always runs, on every architecture.
+rm -rf "$HOME/.local/share/protonmail/bridge-v3/updates"
+
 # Workaround for stale gpg-agent socket causing auth failures on restart
 # Cleans up leftover sockets in the GPG home directory
 if [ -d /root/.gnupg ]; then
@@ -91,6 +96,14 @@ else
 
     # Start bridge reading from faketty; wait so container exits with bridge's exit code
     /protonmail/proton-bridge --cli $@ < faketty &
+
+    # Persist AutoUpdate=false in the vault so the updater stops downloading.
+    # Done once; a repeat would leave a stray "yes" in the bridge shell.
+    if [ ! -f "$HOME/.autoupdate-disabled" ]; then
+        printf 'updates autoupdates disable\nyes\n' > faketty
+        touch "$HOME/.autoupdate-disabled"
+    fi
+
     wait $!
     exit $?
 
