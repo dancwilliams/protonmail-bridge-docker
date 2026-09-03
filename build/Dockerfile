@@ -1,10 +1,11 @@
 # ARG before any FROM is global and available in FROM instructions.
 # debian:bookworm-slim is the default; the workflow overrides to debian:sid-slim for riscv64
-# since bookworm has no riscv64 image.
-ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
+# since bookworm has no riscv64 image. The digests here are the only ones that ship:
+# the workflow reads them from this file so Renovate keeps every published image current.
+ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
 
 # debian:sid-slim is required for the build stage to support riscv64 (golang:bookworm does not).
-FROM debian:sid-slim@sha256:76b6251aaac0ebb6aca1afbc780717aab7e455038c07cb0cb23facb33d241c7d AS build
+FROM debian:sid-slim@sha256:17d1843dae9ca66f1617c1e464f40d06059ccefb0c606e8b54687f253af1684e AS build
 
 ARG version
 

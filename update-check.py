@@ -62,11 +62,9 @@ if git_output(f"ls-remote --heads origin {branch}"):
     print(f"Branch {branch} already exists on the remote — PR already opened. Nothing to do.")
     exit(0)
 
-# Write new version; a new upstream version restarts the container build revision
+# Write new version
 with open("VERSION", 'w') as f:
     f.write(version + "\n")
-with open("REVISION", 'w') as f:
-    f.write("1\n")
 
 # Configure git identity
 git("config --local user.name 'GitHub Actions'")
@@ -74,7 +72,7 @@ git("config --local user.email 'actions@github.com'")
 
 # Create and push a branch for the version bump
 git(f"checkout -b {branch}")
-git("add VERSION REVISION")
+git("add VERSION")
 git(f'commit -m "Bump version to {version}"')
 
 push = subprocess.run(f"git push origin {branch}", shell=True)
