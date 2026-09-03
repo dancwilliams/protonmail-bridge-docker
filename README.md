@@ -16,7 +16,7 @@ An unofficial Docker container for the [Proton Mail Bridge](https://proton.me/ma
 This fork includes fixes and improvements that are not yet merged upstream:
 
 - **Fixes v3.22.0+** — adds missing `libfido2` and `libcbor` runtime dependencies that caused containers to fail to start
-- **Auto-updater disabled** — the bridge's built-in self-updater is blocked; version management is handled by the container image itself (no more broken arm64 containers due to amd64 binary replacement)
+- **Auto-updater disabled** — the bridge's built-in self-updater is turned off and any update it previously downloaded is discarded at startup; version management is handled by the container image itself (no more broken arm64 containers due to the launcher running an amd64 download)
 - **Long-uptime stability fix** — replaced the fragile stdin pipe with `sleep infinity`, preventing the bridge from detaching after several days of uptime
 - **Stale GPG socket cleanup** — removes leftover `S.gpg-agent` sockets on startup, preventing auth failures after container restarts
 - **Health check** — Docker reports container health based on the bridge process status
@@ -41,7 +41,7 @@ or `docker pull dancwilliams/protonmail-bridge` + container restart. No re-initi
 Tags no longer carry a `-build` suffix. If you were pinning to a tag like `v3.21.2-build`, update your compose file or run command to use `v3.21.2` instead. Users tracking `latest` are unaffected.
 
 **Auto-updater disabled**
-The bridge's built-in self-updater is now permanently blocked (bridge binaries are made read-only at image build time). This prevents the updater from replacing container binaries at runtime, which previously caused broken arm64 containers when it downloaded an amd64 binary. Version updates now come exclusively through new container image releases, which this repository handles automatically via a daily version check.
+The bridge's built-in self-updater downloads Proton's amd64 Linux build into the data volume, and the bridge launcher runs that copy on the next start instead of the image's binaries. On arm64 that meant an `exec format error` crash loop after every upstream release; on amd64 it silently ran a version the image never shipped. The entrypoint now deletes any staged download before launch and, on first start, turns auto-update off in the bridge's settings. Version updates come exclusively through new container image releases, which this repository handles automatically via a daily version check. To re-enable auto-update for some reason, run `init` and use `updates autoupdates enable`; the staged download will still be discarded on each restart.
 
 ## Architectures
 
