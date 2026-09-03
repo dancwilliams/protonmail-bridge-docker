@@ -58,8 +58,11 @@ Images are built for the following platforms from source:
 
 | Tag | Description |
 |---|---|
-| `latest` | Most recent release |
-| `v3.x.x` | Specific Proton Bridge version |
+| `latest` | Most recent build of the most recent Proton Bridge version |
+| `v3.x.x` | Most recent build of that Proton Bridge version |
+| `v3.x.x-N` | Immutable. Container build revision `N` of that Proton Bridge version. A container-side change (entrypoint, base image, dependency) that ships a rebuild of the same upstream version bumps `N`; a new upstream version restarts at `1`. Pin to this if you need a build that never changes underneath you. |
+
+The version number always matches upstream Proton Bridge. This project never invents its own upstream-looking version (there will not be a `v3.26.1` unless Proton ships one).
 
 ## Initialization
 
@@ -170,7 +173,7 @@ Replace `v3.22.0` with the desired [Proton Bridge release tag](https://github.co
 
 ## Version updates
 
-This repository checks for new Proton Bridge releases daily. When a new version is detected, the `VERSION` file is updated automatically and a new multi-arch image is built and pushed to Docker Hub and GHCR. No manual intervention is required.
+This repository checks for new Proton Bridge releases daily. When a new version is detected, the `VERSION` file is updated and `REVISION` is reset to `1` automatically, and a new multi-arch image is built and pushed to Docker Hub and GHCR once the pull request is merged. Container-side fixes that rebuild the same upstream version bump `REVISION` instead.
 
 ## Credits
 
