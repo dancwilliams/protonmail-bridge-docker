@@ -160,6 +160,18 @@ For historical context, see upstream issue [#23](https://github.com/shenxn/proto
 
 The `init` step drops you into the bridge CLI, which can also be used to switch between combined and split address mode, configure a proxy, and more. See the [official CLI guide](https://proton.me/support/bridge-cli-guide) for details.
 
+### Telemetry
+
+Bridge sends Proton a daily usage heartbeat (which settings are enabled, address mode, and similar diagnostics). This image leaves that at upstream's default so each user can choose. To turn it off, open the bridge shell and disable it once; the choice is stored in your bridge vault and survives container updates:
+
+```
+docker compose run --rm protonmail-bridge init
+>>> telemetry disable
+>>> exit
+```
+
+This covers usage diagnostics only. Crash reports go through a separate channel that the bridge does not expose a switch for.
+
 ## Building locally
 
 To build the image yourself:
