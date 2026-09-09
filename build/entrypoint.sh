@@ -70,8 +70,8 @@ if [[ $1 == init ]]; then
     # || true to make sure this would not fail in case there is no running instance.
     pkill -f proton-bridge || true
 
-    # Login
-    /protonmail/proton-bridge --cli $@
+    # Login. exec so the CLI becomes PID 1 and receives signals directly.
+    exec /protonmail/proton-bridge --cli "$@"
 
 else
 
@@ -86,25 +86,38 @@ else
     socat TCP-LISTEN:25,fork TCP:127.0.0.1:1025 &
     socat TCP-LISTEN:143,fork TCP:127.0.0.1:1143 &
 
-    # Start protonmail
-    # Fake a terminal, so it does not quit because of EOF...
-    rm -f faketty
-    mkfifo faketty
-
-    # Keep faketty open indefinitely (more stable than cat pipe over long uptimes)
-    sleep infinity > faketty &
-
-    # Start bridge reading from faketty; wait so container exits with bridge's exit code
-    /protonmail/proton-bridge --cli $@ < faketty &
-
     # Persist AutoUpdate=false in the vault so the updater stops downloading.
-    # Done once; a repeat would leave a stray "yes" in the bridge shell.
-    if [ ! -f "$HOME/.autoupdate-disabled" ]; then
-        printf 'updates autoupdates disable\nyes\n' > faketty
-        touch "$HOME/.autoupdate-disabled"
+    #
+    # This used to be typed into the faketty FIFO of the long-running --cli
+    # session. That session is gone (see below), so it is done here instead, in
+    # a short-lived --cli run fed on stdin: the CLI quits on EOF -- the very
+    # behaviour faketty existed to prevent -- so the pipe closing ends it.
+    #
+    # Guarded by a marker so it costs one extra bridge startup once in the life
+    # of the volume, not one per boot. `if` also shields the pipeline from
+    # `set -e`: failing to persist a preference must not stop the container from
+    # starting, and an unwritten marker simply retries on the next boot.
+    #
+    # The password store is a precondition, not a nicety. Started on a volume
+    # that has never seen `init`, the bridge finds no keychain, opens no vault
+    # and has nowhere to write the setting -- yet the marker would be dropped
+    # all the same, so the later `init` would never get its AutoUpdate=false.
+    if [ ! -f "$HOME/.autoupdate-disabled" ] && [ -d "$HOME/.password-store" ]; then
+        if printf 'updates autoupdates disable\nyes\n' | /protonmail/proton-bridge --cli; then
+            touch "$HOME/.autoupdate-disabled"
+        fi
     fi
 
-    wait $!
-    exit $?
+    # Start protonmail.
+    #
+    # --noninteractive is the upstream-supported way to run the bridge without a
+    # frontend, so no terminal has to be faked at all: the faketty FIFO and the
+    # process that had to hold it open are both gone.
+    #
+    # exec matters as much as the flag. Without it bash stays PID 1, and the
+    # kernel does not deliver default-action signals to PID 1, so SIGTERM was
+    # silently discarded and every `docker stop` ended in SIGKILL after the
+    # 10s grace period (exit 137) with the vault never closed cleanly.
+    exec /protonmail/proton-bridge --noninteractive "$@"
 
 fi
