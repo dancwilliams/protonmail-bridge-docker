@@ -146,6 +146,43 @@ environment:
 
 > **Note:** Adopting this on an existing setup requires re-running `init` with the environment variable set. This will regenerate the GPG key and you will need to re-authenticate with Protonmail.
 
+### Custom TLS certificate
+
+Bridge generates its own self-signed certificate for IMAP and SMTP with `CN=127.0.0.1` and a single IP SAN. It contains no DNS names, so any client that connects by hostname — another container reaching this one at `proton-bridge` on a shared Docker network, for example — will fail hostname verification.
+
+Bridge can use a certificate you supply instead. Generate one with the SAN you need:
+
+```
+openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+  -keyout key.pem -out cert.pem \
+  -subj "/CN=proton-bridge" \
+  -addext "subjectAltName=DNS:proton-bridge"
+```
+
+Mount it somewhere that persists across restarts, either inside the existing volume or as a bind mount:
+
+```yaml
+volumes:
+  - protonmail:/root
+  - ./certs:/root/certs:ro
+```
+
+Then import it and restart the container:
+
+```
+docker compose run --rm protonmail-bridge init
+>>> cert import
+Enter the path to the cert.pem file: /root/certs/cert.pem
+Enter the path to the key.pem file: /root/certs/key.pem
+>>> exit
+```
+
+The choice is stored in your bridge vault and survives container updates. Clients still need to trust the issuing CA, since the certificate is self-signed.
+
+> **Note:** Bridge stores the *paths* to the certificate and key, not their contents, and re-reads them on every start. If the files are missing or unreadable it logs a single `Failed to read certificate from file, using default` line and silently falls back to the built-in `127.0.0.1` certificate. If hostname verification still fails after importing, check the bridge log before assuming the import did not take.
+
+The port forwarding this image uses for 25 and 143 is a plain TCP proxy, so it passes the TLS handshake and SNI through untouched.
+
 For security vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
 ## Kubernetes
