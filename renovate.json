@@ -21,6 +21,16 @@
       "schedule": [
         "at any time"
       ]
+    },
+    {
+      "description": "The example compose file tracks :latest on purpose; see the Tags table in README for pinning.",
+      "matchManagers": [
+        "docker-compose"
+      ],
+      "matchPackageNames": [
+        "dancwilliams/protonmail-bridge"
+      ],
+      "enabled": false
     }
   ]
 }
