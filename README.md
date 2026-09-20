@@ -100,7 +100,7 @@ docker run -d \
 docker compose up -d
 ```
 
-See the included [docker-compose.yml](docker-compose.yml) for a working example.
+See the included [docker-compose.yml](docker-compose.yml) for a working example. It tracks `latest`; to pin a build that never changes underneath you, replace the tag with a `v3.x.x-N` tag from [Tags](#tags).
 
 ## Security
 
