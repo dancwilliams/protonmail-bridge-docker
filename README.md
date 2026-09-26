@@ -20,7 +20,7 @@ This fork includes fixes and improvements that are not yet merged upstream:
 - **Long-uptime stability fix** — replaced the fragile stdin pipe with `sleep infinity`, preventing the bridge from detaching after several days of uptime
 - **Stale GPG socket cleanup** — removes leftover `S.gpg-agent` sockets on startup, preventing auth failures after container restarts
 - **Health check** — Docker reports container health based on the bridge process status
-- **Automated version tracking** — new Proton Bridge releases are detected within 24 hours and trigger a new multi-arch image build automatically
+- **Automated version tracking** — new Proton Bridge releases are detected within 24 hours of Proton marking them "latest" on GitHub, and the resulting version-bump PR merges itself once the test build passes, triggering a new multi-arch image build
 
 ## Migrating to this image
 
@@ -222,7 +222,7 @@ Replace `v3.22.0` with the desired [Proton Bridge release tag](https://github.co
 
 ## Version updates
 
-This repository checks for new Proton Bridge releases daily. When a new version is detected, the `VERSION` file is updated automatically and a new multi-arch image is built and pushed to Docker Hub and GHCR once the pull request is merged. Renovate keeps the Debian base image digests in the Dockerfile current; merging one of its PRs rebuilds the current version as the next revision.
+This repository checks GitHub's "latest" Proton Bridge release daily. Proton typically promotes a release to "latest" one to two weeks after publishing it, and never promotes some (3.23.0 and 3.24.0 stayed pre-release), so that flag is treated as Proton's stable channel. When a new version is detected, the `VERSION` file is updated in a pull request with auto-merge enabled: if the amd64 test build passes, the PR merges itself and a new multi-arch image is built and pushed to Docker Hub and GHCR. If the test build fails (usually a new system dependency), the PR stays open for a human. Renovate keeps the Debian base image digests in the Dockerfile current; merging one of its PRs rebuilds the current version as the next revision.
 
 ## Credits
 
