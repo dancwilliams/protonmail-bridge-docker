@@ -23,9 +23,9 @@ LABEL maintainer="Dan Williams <dancwilliams@github>"
 EXPOSE 25/tcp
 EXPOSE 143/tcp
 
-# Monitor proton-bridge process health
+# Monitor that the container actually serves mail, not merely that a process exists
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
-  CMD bash -c "pgrep -f proton-bridge || exit 1"
+  CMD bash /protonmail/healthcheck.sh
 
 # Install runtime dependencies
 RUN apt-get -o Acquire::http::Timeout=30 update \
@@ -33,7 +33,7 @@ RUN apt-get -o Acquire::http::Timeout=30 update \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy bash scripts
-COPY gpgparams entrypoint.sh /protonmail/
+COPY gpgparams entrypoint.sh healthcheck.sh /protonmail/
 
 # Copy protonmail
 COPY --from=build /build/bridge /protonmail/
