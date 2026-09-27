@@ -9,6 +9,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Back-to-back merges to master each rebuild every platform; keep only the newest.
+# Keyed on ref so PR test runs for different branches do not cancel each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DOCKERHUB_REPO: dancwilliams/protonmail-bridge
   GHCR_REPO: ghcr.io/dancwilliams/protonmail-bridge-docker
@@ -37,6 +43,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.event_name == 'pull_request' && needs.changes.outputs.build == 'true'
+    env:
+      # A fork PR's GITHUB_TOKEN is read-only: it can neither push to GHCR nor upload
+      # SARIF. Build locally and print the scan instead, so outside PRs still get gated.
+      FORK: ${{ github.event.pull_request.head.repo.fork }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -72,25 +82,28 @@ jobs:
           context: ./build
           file: ./build/Dockerfile
           tags: "${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}"
-          push: true
-          provenance: mode=max
-          sbom: true
+          push: ${{ env.FORK != 'true' }}
+          load: ${{ env.FORK == 'true' }}
+          provenance: ${{ env.FORK != 'true' && 'mode=max' || 'false' }}
+          sbom: ${{ env.FORK != 'true' }}
           build-args: |
             version=${{ env.version }}
 
       - name: Verify provenance attestation
+        if: env.FORK != 'true'
         run: docker buildx imagetools inspect "${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}" --format '{{ json .Provenance }}'
 
       - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}"
-          format: 'sarif'
+          format: ${{ env.FORK == 'true' && 'table' || 'sarif' }}
           exit-code: 0
           severity: 'CRITICAL,HIGH'
-          output: 'trivy-results.sarif'
+          output: ${{ env.FORK != 'true' && 'trivy-results.sarif' || '' }}
 
       - name: Upload Trivy scan SARIF report
+        if: env.FORK != 'true'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
