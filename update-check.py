@@ -105,8 +105,35 @@ response = requests.post(
     timeout=30,
 )
 
-if response.status_code == 201:
-    print(f"PR opened: {response.json()['html_url']}")
-else:
+if response.status_code != 201:
     print(f"Failed to create PR: {response.status_code} {response.text}")
     exit(1)
+
+pr = response.json()
+print(f"PR opened: {pr['html_url']}")
+
+
+def enable_auto_merge(node_id):
+    """Squash-merge the PR once the master ruleset's required check passes.
+    A failing test build leaves the PR open, so a new upstream dependency
+    still gets a human. Returns None on success, else the error text."""
+    resp = requests.post(
+        "https://api.github.com/graphql",
+        json={
+            "query": "mutation($id: ID!) { enablePullRequestAutoMerge("
+                     "input: {pullRequestId: $id, mergeMethod: SQUASH}) { clientMutationId } }",
+            "variables": {"id": node_id},
+        },
+        headers=api_headers,
+        timeout=30,
+    )
+    errors = resp.json().get("errors") if resp.status_code == 200 else resp.text
+    return errors or None
+
+
+error = enable_auto_merge(pr["node_id"])
+if error:
+    # Failing the job is the notification: the PR exists and needs a manual merge.
+    print(f"Failed to enable auto-merge, merge manually: {error}")
+    exit(1)
+print("Auto-merge enabled.")

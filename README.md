@@ -20,7 +20,7 @@ This fork includes fixes and improvements that are not yet merged upstream:
 - **Long-uptime stability fix** — replaced the fragile stdin pipe with `sleep infinity`, preventing the bridge from detaching after several days of uptime
 - **Stale GPG socket cleanup** — removes leftover `S.gpg-agent` sockets on startup, preventing auth failures after container restarts
 - **Health check** — Docker reports container health based on the bridge process status
-- **Automated version tracking** — new Proton Bridge releases are detected within 24 hours and trigger a new multi-arch image build automatically
+- **Automated version tracking** — new Proton Bridge releases are detected within 24 hours of Proton marking them "latest" on GitHub, and the resulting version-bump PR merges itself once the test build passes, triggering a new multi-arch image build
 
 ## Migrating to this image
 
@@ -100,7 +100,7 @@ docker run -d \
 docker compose up -d
 ```
 
-See the included [docker-compose.yml](docker-compose.yml) for a working example.
+See the included [docker-compose.yml](docker-compose.yml) for a working example. It tracks `latest`; to pin a build that never changes underneath you, replace the tag with a `v3.x.x-N` tag from [Tags](#tags).
 
 ## Security
 
@@ -146,6 +146,43 @@ environment:
 
 > **Note:** Adopting this on an existing setup requires re-running `init` with the environment variable set. This will regenerate the GPG key and you will need to re-authenticate with Protonmail.
 
+### Custom TLS certificate
+
+Bridge generates its own self-signed certificate for IMAP and SMTP with `CN=127.0.0.1` and a single IP SAN. It contains no DNS names, so any client that connects by hostname — another container reaching this one at `proton-bridge` on a shared Docker network, for example — will fail hostname verification.
+
+Bridge can use a certificate you supply instead. Generate one with the SAN you need:
+
+```
+openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+  -keyout key.pem -out cert.pem \
+  -subj "/CN=proton-bridge" \
+  -addext "subjectAltName=DNS:proton-bridge"
+```
+
+Mount it somewhere that persists across restarts, either inside the existing volume or as a bind mount:
+
+```yaml
+volumes:
+  - protonmail:/root
+  - ./certs:/root/certs:ro
+```
+
+Then import it and restart the container:
+
+```
+docker compose run --rm protonmail-bridge init
+>>> cert import
+Enter the path to the cert.pem file: /root/certs/cert.pem
+Enter the path to the key.pem file: /root/certs/key.pem
+>>> exit
+```
+
+The choice is stored in your bridge vault and survives container updates. Clients still need to trust the issuing CA, since the certificate is self-signed.
+
+> **Note:** Bridge stores the *paths* to the certificate and key, not their contents, and re-reads them on every start. If the files are missing or unreadable it logs a single `Failed to read certificate from file, using default` line and silently falls back to the built-in `127.0.0.1` certificate. If hostname verification still fails after importing, check the bridge log before assuming the import did not take.
+
+The port forwarding this image uses for 25 and 143 is a plain TCP proxy, so it passes the TLS handshake and SNI through untouched.
+
 For security vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
 ## Kubernetes
@@ -185,7 +222,7 @@ Replace `v3.22.0` with the desired [Proton Bridge release tag](https://github.co
 
 ## Version updates
 
-This repository checks for new Proton Bridge releases daily. When a new version is detected, the `VERSION` file is updated automatically and a new multi-arch image is built and pushed to Docker Hub and GHCR once the pull request is merged. Renovate keeps the Debian base image digests in the Dockerfile current; merging one of its PRs rebuilds the current version as the next revision.
+This repository checks GitHub's "latest" Proton Bridge release daily. Proton typically promotes a release to "latest" one to two weeks after publishing it, and never promotes some (3.23.0 and 3.24.0 stayed pre-release), so that flag is treated as Proton's stable channel. When a new version is detected, the `VERSION` file is updated in a pull request with auto-merge enabled: if the amd64 test build passes, the PR merges itself and a new multi-arch image is built and pushed to Docker Hub and GHCR. If the test build fails (usually a new system dependency), the PR stays open for a human. Renovate keeps the Debian base image digests in the Dockerfile current; merging one of its PRs rebuilds the current version as the next revision.
 
 ## Credits
 
