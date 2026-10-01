@@ -35,6 +35,7 @@ jobs:
           filters: |
             build:
               - '.github/workflows/build.yaml'
+              - '.github/smoke-test.sh'
               - 'build/**'
               - 'VERSION'
 
@@ -92,6 +93,15 @@ jobs:
       - name: Verify provenance attestation
         if: env.FORK != 'true'
         run: docker buildx imagetools inspect "${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}" --format '{{ json .Provenance }}'
+
+      # A build proves the image assembles, not that it runs: #116 shipped a
+      # healthcheck that failed every container in SSL mode. A fork PR already has
+      # the image loaded; otherwise it was pushed, so pull it back.
+      - name: Smoke test
+        run: |
+          image="${{ env.DOCKER_REPO_DEV }}:dev-${{ env.SAFE_TAG }}"
+          [ "$FORK" = true ] || docker pull -q "$image"
+          bash .github/smoke-test.sh "$image"
 
       - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@v0.36.0
