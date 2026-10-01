@@ -19,7 +19,7 @@ This fork includes fixes and improvements that are not yet merged upstream:
 - **Auto-updater disabled** — the bridge's built-in self-updater is turned off and any update it previously downloaded is discarded at startup; version management is handled by the container image itself (no more broken arm64 containers due to the launcher running an amd64 download)
 - **Long-uptime stability fix** — replaced the fragile stdin pipe with `sleep infinity`, preventing the bridge from detaching after several days of uptime
 - **Stale GPG socket cleanup** — removes leftover `S.gpg-agent` sockets on startup, preventing auth failures after container restarts
-- **Health check** — Docker reports container health based on the bridge process status
+- **Health check** — Docker reports container health based on whether the SMTP and IMAP ports actually answer (STARTTLS or SSL mode)
 - **Automated version tracking** — new Proton Bridge releases are detected within 24 hours of Proton marking them "latest" on GitHub, and the resulting version-bump PR merges itself once the test build passes, triggering a new multi-arch image build
 
 ## Migrating to this image

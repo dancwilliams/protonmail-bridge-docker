@@ -44,9 +44,21 @@ fi
 probe() {
     local port=$1 farewell=$2
 
+    # TLS first. With `change smtp-security` / `change imap-security` set to
+    # SSL the bridge waits for a ClientHello and sends no plaintext greeting, so
+    # the plaintext walk below would stall on every port -- four stalls overrun
+    # the HEALTHCHECK timeout -- and log "tls: first record does not look like a
+    # TLS handshake" on each. The reverse is free: against a STARTTLS port
+    # s_client gives up on the plaintext greeting at once and the bridge logs
+    # nothing. openssl is in the image as a dependency of ca-certificates.
+    printf '%s\r\n' "$farewell" \
+        | timeout 3 openssl s_client -quiet -connect "127.0.0.1:${port}" >/dev/null 2>&1 \
+        && return 0
+
     { exec 3<>"/dev/tcp/127.0.0.1/${port}"; } 2>/dev/null || return 1
 
-    IFS= read -r -t 3 -u 3 _ 2>/dev/null                    # greeting
+    # No TLS and no greeting: the listener accepts but serves nothing.
+    IFS= read -r -t 3 -u 3 _ 2>/dev/null || return 1        # greeting
     printf '%s\r\n' "$farewell" >&3 2>/dev/null             # QUIT / LOGOUT
     while IFS= read -r -t 2 -u 3 _ 2>/dev/null; do :; done  # reply, until EOF
 
