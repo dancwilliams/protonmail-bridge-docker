@@ -1,7 +1,10 @@
 name: build from source
 
 on:
+  # master only: a push run on a PR branch adds a skipped ci-required check, and
+  # GitHub counts skipped as passing, so the ruleset merged before `test` ran (#120).
   push:
+    branches: [master]
     paths:
       - .github/workflows/build.yaml
       - build/*
@@ -331,6 +334,8 @@ jobs:
           EOF
           )"
 
+  # The master ruleset's required check. Keep this the only job named ci-required in
+  # any workflow: a duplicate that skips early satisfies the ruleset before `test` ends.
   ci-required:
     if: ${{ failure() || cancelled() }}
     needs: [changes, test]

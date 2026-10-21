@@ -2,6 +2,7 @@ name: update check
 
 on:
   push:
+    branches: [master]
     paths:
       - .github/workflows/update-check.yaml
       - update-check.py
@@ -48,7 +49,9 @@ jobs:
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: python3 update-check.py ${{ github.event_name == 'pull_request' }}
 
-  ci-required:
+  # Not ci-required: that name is build.yaml's ruleset check, and this job skipping
+  # early on every PR would satisfy the ruleset before the image test finished.
+  update-check-required:
     if: ${{ failure() || cancelled() }}
     needs: [changes, check]
     runs-on: ubuntu-latest
