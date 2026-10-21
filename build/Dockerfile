@@ -2,7 +2,7 @@
 # debian:bookworm-slim is the default; the workflow overrides to debian:sid-slim for riscv64
 # since bookworm has no riscv64 image. The digests here are the only ones that ship:
 # the workflow reads them from this file so Renovate keeps every published image current.
-ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
 
 # debian:sid-slim is required for the build stage to support riscv64 (golang:bookworm does not).
 FROM debian:sid-slim@sha256:1f11c32b03195c1b28c55e4579755659edae5c76dd76a69b4e4fb34c58fa8744 AS build
