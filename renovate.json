@@ -18,6 +18,8 @@
         "debian"
       ],
       "commitMessageTopic": "debian base image",
+      "groupName": "debian base images",
+      "automerge": true,
       "schedule": [
         "at any time"
       ]
