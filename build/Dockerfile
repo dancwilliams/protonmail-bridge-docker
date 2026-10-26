@@ -19,6 +19,9 @@ RUN make build-nogui vault-editor
 
 FROM ${RUNTIME_IMAGE}
 LABEL maintainer="Dan Williams <dancwilliams@github>"
+# Lets image-update tooling read the bridge version (and its major) without pulling.
+ARG version
+LABEL org.opencontainers.image.version=$version
 
 EXPOSE 25/tcp
 EXPOSE 143/tcp
