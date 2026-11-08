@@ -120,7 +120,8 @@ else
     # 10s grace period (exit 137) with the vault never closed cleanly.
     #
     # The bridge itself prints almost nothing in this mode, so say it started (#130).
-    echo "Starting Proton Mail Bridge: SMTP on port 25, IMAP on port 143. A healthy bridge logs little more than this; check 'docker ps' for health."
+    # The container cannot see its host port mapping, so name the container ports as such.
+    echo "Starting Proton Mail Bridge: SMTP on container port 25, IMAP on container port 143 (connect to the host ports you published). A healthy bridge logs little more than this; check 'docker ps' for health."
     exec /protonmail/proton-bridge --noninteractive "$@"
 
 fi
