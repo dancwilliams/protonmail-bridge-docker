@@ -102,6 +102,8 @@ docker compose up -d
 
 See the included [docker-compose.yml](docker-compose.yml) for a working example. It tracks `latest`; to pin a build that never changes underneath you, replace the tag with a `v3.x.x-N` tag from [Tags](#tags).
 
+A running bridge logs almost nothing: a `Starting Proton Mail Bridge` line and usually a dbus `Failed to add test credentials to keychain` warning, which is harmless. The ASCII banner older images printed on every start came from the interactive shell, which now runs only during `init` and once on the first start of a new volume. To check that the bridge works, look for `healthy` in the STATUS column of `docker ps`, then connect your mail client.
+
 ## Security
 
 Running the commands above exposes the bridge on all network interfaces. If you are on an untrusted network or a machine with a public IP, restrict the ports to localhost:

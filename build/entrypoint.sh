@@ -118,6 +118,9 @@ else
     # kernel does not deliver default-action signals to PID 1, so SIGTERM was
     # silently discarded and every `docker stop` ended in SIGKILL after the
     # 10s grace period (exit 137) with the vault never closed cleanly.
+    #
+    # The bridge itself prints almost nothing in this mode, so say it started (#130).
+    echo "Starting Proton Mail Bridge: SMTP on port 25, IMAP on port 143. A healthy bridge logs little more than this; check 'docker ps' for health."
     exec /protonmail/proton-bridge --noninteractive "$@"
 
 fi
