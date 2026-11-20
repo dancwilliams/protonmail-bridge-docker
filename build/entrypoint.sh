@@ -2,6 +2,18 @@
 
 set -e
 
+# Running as a non-root user (opt-in) needs a HOME it owns. A volume used while the
+# container ran as root holds root-owned files, so say how to hand it over instead of
+# failing later inside gpg, pass or the bridge with a less obvious error. Two levels
+# deep is enough to catch it (.gnupg, .password-store, .config/protonmail, ...)
+# without walking the whole IMAP cache on every start.
+if [ "$(id -u)" != 0 ] && { [ ! -w "$HOME" ] || [ -n "$(find "$HOME" -maxdepth 2 ! -user "$(id -u)" -print -quit 2>/dev/null)" ]; }; then
+    echo "ERROR: running as uid $(id -u), but HOME ($HOME) holds files it does not own." >&2
+    echo "A volume created while the container ran as root must be handed over once:" >&2
+    echo "  docker run --rm -v <volume>:/root --entrypoint chown <image> -R $(id -u):$(id -g) /root" >&2
+    exit 1
+fi
+
 # The launcher execs any newer bridge it finds here (downloaded by the
 # built-in updater, amd64 only) instead of the image's binaries. Drop it so
 # the image version always runs, on every architecture.
@@ -9,8 +21,8 @@ rm -rf "$HOME/.local/share/protonmail/bridge-v3/updates"
 
 # Workaround for stale gpg-agent socket causing auth failures on restart
 # Cleans up leftover sockets in the GPG home directory
-if [ -d /root/.gnupg ]; then
-    rm -f /root/.gnupg/S.gpg-agent*
+if [ -d "$HOME/.gnupg" ]; then
+    rm -f "$HOME"/.gnupg/S.gpg-agent*
 fi
 
 # Preset passphrase into gpg-agent for pass/bridge to decrypt credentials

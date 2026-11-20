@@ -7,6 +7,8 @@ services:
     restart: unless-stopped
     volumes:
       - protonmail:/root
+    # Optional: run as a non-root user (see README, "Running as non-root")
+    # user: "1000:1000"
     # Optional: set a passphrase to encrypt the GPG keyring (see README)
     # environment:
     #   - KEYRING_PASSPHRASE=your-passphrase-here

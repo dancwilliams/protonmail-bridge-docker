@@ -43,6 +43,19 @@ COPY --from=build /build/bridge /protonmail/
 COPY --from=build /build/proton-bridge /protonmail/
 COPY --from=build /build/vault-editor /protonmail/
 
+# Optional non-root user. The image still starts as root unless the user opts in with
+# `--user 1000:1000` (or `user: "1000:1000"` in compose); nothing changes otherwise.
+# HOME stays /root and the volume stays mounted there: the vault records absolute paths
+# (Settings.GluonDir), so moving HOME would orphan the IMAP cache of existing volumes.
+# /root is handed to uid 1000 so that a fresh named volume, which Docker seeds from the
+# image's /root ownership and content (.bashrc, .profile), is owned by it. root is
+# unaffected: it bypasses ownership.
+# ENV HOME keeps HOME at /root for any other uid as well.
+RUN useradd --uid 1000 --user-group --no-create-home --home-dir /root --shell /usr/sbin/nologin bridge \
+    && chown -R bridge:bridge /root \
+    && chmod 700 /root
+ENV HOME=/root
+
 # Prevent the bridge's built-in auto-updater from replacing the container binary at runtime.
 # Version management is handled externally via the update-check workflow.
 RUN chmod -w /protonmail/bridge /protonmail/proton-bridge /protonmail/vault-editor
