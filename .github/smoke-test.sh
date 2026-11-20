@@ -9,6 +9,9 @@
 # logged in. Run once per connection mode, because the healthcheck from #105
 # only spoke plaintext and failed every container in SSL mode (#116).
 #
+# A third run starts the same image as uid 1000 (opt-in non-root) and checks
+# that the bridge really runs unprivileged.
+#
 # Usage: smoke-test.sh <image>
 
 set -euo pipefail
@@ -52,14 +55,17 @@ probe_errors() { docker logs "$name" 2>&1 | grep -E 'ERRO.*(log/SMTP|server/imap
 run_mode() {
     mode=$1
     local cli=$2
+    local user=${3:-}
+    local as=()
+    [ -n "$user" ] && as=(--user "$user")
 
     cleanup
     docker volume create "$name" >/dev/null
 
     # `init` creates the keychain and vault; the piped CLI commands set the mode.
-    printf '%bexit\n' "$cli" | docker run --rm -i -v "$name:/root" "$image" init >/dev/null 2>&1 || true
+    printf '%bexit\n' "$cli" | docker run --rm -i "${as[@]}" -v "$name:/root" "$image" init >/dev/null 2>&1 || true
 
-    docker run -d --name "$name" --health-interval=3s -v "$name:/root" "$image" >/dev/null
+    docker run -d --name "$name" --health-interval=3s "${as[@]}" -v "$name:/root" "$image" >/dev/null
 
     wait_health healthy 150
 
@@ -67,6 +73,12 @@ run_mode() {
     sleep 12
     [ "$(health)" = healthy ] || fail "did not stay healthy"
     [ -z "$(probe_errors)" ] || fail "healthcheck makes the bridge log errors"
+
+    if [ -n "$user" ]; then
+        local uid
+        uid=$(docker exec "$name" ps -o uid= -C proton-bridge,bridge | tr -d ' ' | sort -u)
+        [ "$uid" = "${user%%:*}" ] || fail "bridge runs as uid '$uid', expected ${user%%:*}"
+    fi
 
     # A dead socat closes a published port while the bridge keeps running.
     docker exec "$name" pkill -f 'TCP-LISTEN:25,'
@@ -82,3 +94,4 @@ run_mode() {
 
 run_mode starttls ''
 run_mode ssl 'change smtp-security\nyes\nchange imap-security\nyes\n'
+run_mode nonroot '' 1000:1000

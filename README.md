@@ -148,6 +148,32 @@ environment:
 
 > **Note:** Adopting this on an existing setup requires re-running `init` with the environment variable set. This will regenerate the GPG key and you will need to re-authenticate with Protonmail.
 
+### Running as non-root
+
+By default the container runs as root. To run the bridge as an unprivileged user instead, start it as uid `1000` (the `bridge` user shipped in the image). The volume stays mounted at `/root`, which remains `HOME`.
+
+**docker run:** add `--user 1000:1000` to both the `init` and the run commands.
+
+**docker compose:**
+
+```yaml
+user: "1000:1000"
+```
+
+A fresh named volume works as is. A volume created while the container ran as root belongs to root and must be handed over once, with the container stopped:
+
+```
+docker run --rm -v protonmail:/root --entrypoint chown dancwilliams/protonmail-bridge -R 1000:1000 /root
+```
+
+If you skip this step, the container stops at startup with an error that shows this command.
+
+Notes:
+
+- The mount point must stay `/root`. The bridge records absolute paths in its vault (the IMAP cache location), so moving the volume elsewhere would orphan the cache of an existing setup.
+- Another uid also works if it owns the volume. `HOME` is set to `/root` for any uid.
+- Binding the container ports 25 and 143 as non-root relies on `net.ipv4.ip_unprivileged_port_start=0`, which Docker sets by default for containers in their own network namespace. With `--network host`, or on Kubernetes, set that sysctl (it is a safe sysctl in a pod `securityContext`).
+
 ### Custom TLS certificate
 
 Bridge generates its own self-signed certificate for IMAP and SMTP with `CN=127.0.0.1` and a single IP SAN. It contains no DNS names, so any client that connects by hostname — another container reaching this one at `proton-bridge` on a shared Docker network, for example — will fail hostname verification.
