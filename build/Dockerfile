@@ -1,23 +1,54 @@
-# ARG before any FROM is global and available in FROM instructions.
-# debian:bookworm-slim is the default; the workflow overrides to debian:sid-slim for riscv64
-# since bookworm has no riscv64 image. The digests here are the only ones that ship:
-# the workflow reads them from this file so Renovate keeps every published image current.
-ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
+# debian:trixie-slim supports amd64, arm64, and riscv64 with lockstep package versions.
+# The build stage runs on $BUILDPLATFORM so non-native targets (linux/riscv64) cross-compile
+# natively instead of running Go and gcc under QEMU emulation.
+# The digests here are the only ones that ship, so Renovate keeps every published image current.
+FROM --platform=$BUILDPLATFORM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS build
 
-# debian:sid-slim is required for the build stage to support riscv64 (golang:bookworm does not).
-FROM debian:sid-slim@sha256:07a3205e8583fdff12d2b05bd030f50437e9fd340ee616df0c05dc77af75767b AS build
-
+ARG BUILDARCH
+ARG TARGETOS
+ARG TARGETARCH
 ARG version
 
-# Install build dependencies
-RUN apt-get -o Acquire::http::Timeout=30 update && apt-get -o Acquire::http::Timeout=30 install -y golang build-essential libsecret-1-dev libfido2-dev libcbor-dev
+# Install build dependencies (native or Debian multiarch cross-compilation)
+RUN set -eux; \
+    if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
+        apt-get -o Acquire::http::Timeout=30 update; \
+        apt-get -o Acquire::http::Timeout=30 install -y golang build-essential libsecret-1-dev libfido2-dev libcbor-dev; \
+    else \
+        case "$TARGETARCH" in \
+            riscv64) triplet=riscv64-linux-gnu ;; \
+            arm64)   triplet=aarch64-linux-gnu ;; \
+            amd64)   triplet=x86_64-linux-gnu ;; \
+            *) echo "Unsupported cross-compile TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+        esac; \
+        dpkg --add-architecture "$TARGETARCH"; \
+        apt-get -o Acquire::http::Timeout=30 update; \
+        apt-get -o Acquire::http::Timeout=30 install -y \
+            golang make pkg-config ca-certificates "gcc-${triplet}" \
+            "libsecret-1-dev:${TARGETARCH}" "libfido2-dev:${TARGETARCH}" "libcbor-dev:${TARGETARCH}"; \
+    fi
 
 # Build
 ADD https://github.com/ProtonMail/proton-bridge.git#${version} /build/
 WORKDIR /build/
-RUN make build-nogui vault-editor
+RUN set -eux; \
+    if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
+        make build-nogui vault-editor; \
+    else \
+        case "$TARGETARCH" in \
+            riscv64) triplet=riscv64-linux-gnu ;; \
+            arm64)   triplet=aarch64-linux-gnu ;; \
+            amd64)   triplet=x86_64-linux-gnu ;; \
+        esac; \
+        CGO_ENABLED=1 \
+        GOOS="$TARGETOS" \
+        GOARCH="$TARGETARCH" \
+        CC="${triplet}-gcc" \
+        PKG_CONFIG_LIBDIR="/usr/lib/${triplet}/pkgconfig:/usr/share/pkgconfig" \
+        make build-nogui vault-editor; \
+    fi
 
-FROM ${RUNTIME_IMAGE}
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 LABEL maintainer="Dan Williams <dancwilliams@github>"
 # Lets image-update tooling read the bridge version (and its major) without pulling.
 ARG version
