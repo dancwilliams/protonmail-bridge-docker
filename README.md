@@ -160,11 +160,13 @@ By default the container runs as root. To run the bridge as an unprivileged user
 user: "1000:1000"
 ```
 
-A fresh named volume works as is. A volume created while the container ran as root belongs to root and must be handed over once, with the container stopped:
+A fresh named volume works as is: Docker seeds it from the image's `/root`, which belongs to uid 1000. A bind mount is not seeded, so hand the host directory to uid 1000 beforehand (`chown 1000:1000 <dir>`). A volume created while the container ran as root belongs to root and must be handed over once, with the container stopped:
 
 ```
-docker run --rm -v protonmail:/root --entrypoint chown dancwilliams/protonmail-bridge -R 1000:1000 /root
+docker run --rm --user 0 -v protonmail:/root --entrypoint chown dancwilliams/protonmail-bridge -R 1000:1000 /root
 ```
+
+`--user 0` keeps the command working if you adapt it to `docker compose run` with `user:` already set.
 
 If you skip this step, the container stops at startup with an error that shows this command.
 

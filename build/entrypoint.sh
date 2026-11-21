@@ -2,16 +2,25 @@
 
 set -e
 
-# Running as a non-root user (opt-in) needs a HOME it owns. A volume used while the
-# container ran as root holds root-owned files, so say how to hand it over instead of
-# failing later inside gpg, pass or the bridge with a less obvious error. Two levels
-# deep is enough to catch it (.gnupg, .password-store, .config/protonmail, ...)
-# without walking the whole IMAP cache on every start.
-if [ "$(id -u)" != 0 ] && { [ ! -w "$HOME" ] || [ -n "$(find "$HOME" -maxdepth 2 ! -user "$(id -u)" -print -quit 2>/dev/null)" ]; }; then
-    echo "ERROR: running as uid $(id -u), but HOME ($HOME) holds files it does not own." >&2
-    echo "A volume created while the container ran as root must be handed over once:" >&2
-    echo "  docker run --rm -v <volume>:/root --entrypoint chown <image> -R $(id -u):$(id -g) /root" >&2
-    exit 1
+# Running as a non-root user (opt-in) needs a HOME it can write and state it owns. A
+# volume used while the container ran as root holds root-owned files, so say how to
+# hand it over instead of failing later inside gpg, pass or the bridge with a less
+# obvious error. Only the state directories this image writes are checked, two levels
+# deep (.config/protonmail/bridge-v3, .local/share/protonmail/bridge-v3, ...), so the
+# whole IMAP cache is not walked on every start. HOME itself and anything else in it are
+# left alone: a root-owned /root/certs mount, a Kubernetes fsGroup volume (/root owned
+# by root:<fsGroup>, mode 2775) or an ext4 lost+found are all fine.
+if [ "$(id -u)" != 0 ]; then
+    state_dirs=()
+    for d in "$HOME/.gnupg" "$HOME/.password-store" "$HOME/.config" "$HOME/.local" "$HOME/.local/share/protonmail" "$HOME/.cache"; do
+        [ -e "$d" ] && state_dirs+=("$d")
+    done
+    if [ ! -w "$HOME" ] || { [ "${#state_dirs[@]}" -gt 0 ] && [ -n "$(find "${state_dirs[@]}" -maxdepth 2 ! -user "$(id -u)" -print -quit 2>/dev/null)" ]; }; then
+        echo "ERROR: running as uid $(id -u), but HOME ($HOME) is not writable or holds bridge state it does not own." >&2
+        echo "A volume created while the container ran as root must be handed over once:" >&2
+        echo "  docker run --rm --user 0 -v <volume>:/root --entrypoint chown <image> -R $(id -u):$(id -g) /root" >&2
+        exit 1
+    fi
 fi
 
 # The launcher execs any newer bridge it finds here (downloaded by the
